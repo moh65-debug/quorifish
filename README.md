@@ -1,40 +1,32 @@
-# Quoridor five-hour engine experiments
+# Wallz 2200 five-hour trainer
 
-This package runs bounded, repeated Quoridor engine tournaments using up to four CPU workers. It is a testing and parameter-tuning system, not neural-network training and not the Stockfish Fishtest service. It does not connect to Ka and cannot guarantee a stronger engine, a win against Ka, a specific number of games, or a specific number of improvements.
+This package tests changes to the Wallz 2200-profile search engine embedded in Quoridor_Lab_Wallz.html. It tunes existing search options; it is not neural-network training or Stockfish Fishtest. It does not connect to KA or guarantee an improvement, a particular number of games, or a win against KA.
 
-## Install in moh65-debug/quorifish
+## Install in GitHub
 
-1. Extract the ZIP and open the `quoridor-training-endurance` folder.
-2. Upload its **contents** to the root of the repository's default branch, replacing matching files. Include `.github/workflows/train.yml`, the files in `training/`, and `Quoridor_Lab.html`. This replaces the earlier daily workflow.
-3. In GitHub, check **Settings → Actions → General → Workflow permissions**. The workflow needs permission to write repository contents. Branch protection can still prevent its push.
-4. Open **Actions → Quoridor five-hour experiments → Run workflow**. Ensure it starts on the default branch.
-5. After completion, the workflow commits `training-state/champion.json` and `trained/Quoridor_Lab_trained.html` to the default branch. Download the latter to use the chosen engine offline. The run's artifact also contains `results/run-summary.json`, `results/experiments.jsonl`, the HTML, and the checkpoint.
+1. Disable or delete the previous `.github/workflows/train.yml`, which trains a different engine and uses scripts replaced by this package.
+2. Extract this ZIP. Upload the contents of the `wallz-training` folder into the root of your default branch. Include the hidden `.github/workflows/wallz-train.yml`, `training/` folder, and `Quoridor_Lab_Wallz.html`. Replacing previous `training/run.cjs` and `training/marathon.cjs` is intentional.
+3. In Settings > Actions > General > Workflow permissions, enable Read and write permissions. Branch protection can still prevent the push.
+4. Open Actions > Wallz five-hour training > Run workflow on the default branch.
+5. After completion, download `trained/Quoridor_Lab_Wallz_champion.html` from the repository or run artifact to play offline. The champion settings are saved in `training-state/wallz-champion.json`, which the next run loads from the default branch.
 
-A schedule also starts runs at 00:13, 06:13, 12:13, and 18:13 UTC. Each run works for up to 4 hours 55 minutes, leaving time for saving and pushing. GitHub may delay or skip scheduled runs, and only one run in the concurrency group runs at a time. To stop repeated runs, disable this workflow in the Actions tab. This schedule can use nearly 20 runner-hours per day; review your plan, usage, and GitHub's policies. Standard runners for public repositories are currently free subject to limits and terms; private usage may be billed.
+Scheduled runs begin at 00:13, 06:13, 12:13 and 18:13 UTC, when GitHub schedules them. Scheduled jobs can be delayed or skipped. Disable this workflow in Actions to stop it. It can consume roughly 20 runner-hours a day; review your usage and billing. Up to four workers are used according to available CPUs.
 
-## How the tournament works
+## Experiments and persistence
 
-At the beginning, the job reads the committed champion checkpoint. If it is absent, the workflow attempts to restore the previous v2 Actions cache. If neither exists it starts with wall 55, race 100, branch 10, and the vulnerability check enabled.
+The initial profile uses depth 6, wall bias 0.55 and no deliberate blunders. The offline app initially gives it five seconds per move. Experiments use 30 milliseconds per move to play more games. Good results at this short time limit need not transfer to five-second play.
 
-Up to four workers independently test changes to one of those four settings. Each experiment plays 20 direct pairs with colors reversed and 32 games against two simple playing styles. All games use 1,200 search nodes per move; seeds produce varying openings. A game reaching the repetition or move limit is recorded as unfinished rather than an official draw.
+Workers try one change to wall bias, allShortestPaths, fastWallGen or trapWalls, and compare candidate and champion in 20 paired games with reversed colors and two simple opponents. Unfinished pairs do not count. A candidate must win a strict paired test with at least 10 decisive pairs and pass the opponent gate. Correlated openings, timing noise and repeated tests can still lead to false positives. The workflow cannot invent a new search algorithm or learn a neural network. It may produce no promotions.
 
-The candidate must pass the direct and opponent gates from v2, and additionally meet a stricter p-value threshold of 0.01 divided by the number of workers. If several pass the same round, one is selected by worker order; all other results are retained in the run report. Each new round tests against the selected champion, not against a stale snapshot.
+The runner saves a local checkpoint and playable HTML after each completed round. When five hours end, it stops incomplete experiments, uploads the current results and commits the champion for the next run. Incomplete experiments are discarded. A cancellation or hard runner failure can lose work that has not been uploaded or committed. If the default branch changes during the job, or a push is blocked, download the artifact and restore `training-state/wallz-champion.json` and `trained/Quoridor_Lab_Wallz_champion.html` manually. Test against KA separately; the workflow does not establish KA strength.
 
-These are exploratory tests. Repeated testing, the small pool of simple opponents, potentially correlated openings, and equal-node rather than real-time play prevent the p-value threshold from guaranteeing long-term improvement. The system cannot invent new search algorithms or learn a neural network. Play an independent match against Ka to assess the target; no remote Ka connection is included.
+The bundled Wallz code came from the supplied website files. Verify redistribution permission before publishing it in a public repository.
 
-## Saving and recovery
+## Local checks
 
-The champion is updated on the runner after each completed round. The final state is published as an artifact before the push. The workflow refuses to push if the default branch changed during the five-hour run; it never force-pushes. If permissions, protection rules, a branch change, or a timeout prevent the commit, download the artifact before it expires and restore the champion manually. GitHub-hosted machines are temporary: a canceled run or hard timeout can lose work that was not uploaded or committed. Artifacts expire after 30 days.
+With Node.js 22, in the extracted folder:
 
-The original `Quoridor_Lab.html` is the fixed source template. The current playable result lives in `trained/Quoridor_Lab_trained.html`. Do not manually alter the template's engine strings without updating and testing `training/run.cjs` and `training/marathon.cjs`.
+    node training/check.cjs
+    node training/marathon.cjs --seconds=18 --workers=2 --pairs=1 --gate=1 --ms=5 --seed=11
 
-## Local quick check
-
-With Node.js 22 or later:
-
-```
-node training/check.cjs
-node training/marathon.cjs --seconds=10 --workers=2 --pairs=1 --gate=1 --nodes=100 --seed=1
-```
-
-The quick check exercises mechanics only, not playing strength. The full workflow runs `--seconds=17700 --workers=4 --pairs=20 --gate=4 --nodes=1200`.
+These test mechanics, not playing strength. Delete local `training-state/`, `results/` and `trained/` after a quick test if you wish to start fresh. The GitHub workflow uses `--seconds=18000 --workers=4 --pairs=20 --gate=2 --ms=30`.
