@@ -1,39 +1,40 @@
-# Quoridor Lab — tournament training v2
+# Quoridor five-hour engine experiments
 
-This project tests controlled changes to the offline Quoridor Lab engine. It is inspired by Stockfish's testing process, but it is not Fishtest, neural-network training, or proof of a win against Ka.
+This package runs bounded, repeated Quoridor engine tournaments using up to four CPU workers. It is a testing and parameter-tuning system, not neural-network training and not the Stockfish Fishtest service. It does not connect to Ka and cannot guarantee a stronger engine, a win against Ka, a specific number of games, or a specific number of improvements.
 
-## What is new
+## Install in moh65-debug/quorifish
 
-Each run proposes a change to one of four settings: wall value, distance-to-goal value, the number of wall candidates searched, or the existing wall-vulnerability check. It tests the candidate against the saved champion in 20 pairs of games, swapping colors from the same starting position. Openings vary and some include legal walls.
+1. Extract the ZIP and open the `quoridor-training-endurance` folder.
+2. Upload its **contents** to the root of the repository's default branch, replacing matching files. Include `.github/workflows/train.yml`, the files in `training/`, and `Quoridor_Lab.html`. This replaces the earlier daily workflow.
+3. In GitHub, check **Settings → Actions → General → Workflow permissions**. The workflow needs permission to write repository contents. Branch protection can still prevent its push.
+4. Open **Actions → Quoridor five-hour experiments → Run workflow**. Ensure it starts on the default branch.
+5. After completion, the workflow commits `training-state/champion.json` and `trained/Quoridor_Lab_trained.html` to the default branch. Download the latter to use the chosen engine offline. The run's artifact also contains `results/run-summary.json`, `results/experiments.jsonl`, the HTML, and the checkpoint.
 
-Then both versions play the **same additional openings** against two fixed playing styles: a pawn racer and a greedy wall player. These are simple bots using the same rules implementation, not independent Quoridor engines. A candidate is kept only if it passes the direct comparison and the opponent checks. The tests are exploratory: small samples, adaptive repeated testing, deterministic play, and shared rules mean that a promotion does not establish an improvement against humans or Ka. Repetition or a move limit is recorded as unfinished, not as an official draw.
+A schedule also starts runs at 00:13, 06:13, 12:13, and 18:13 UTC. Each run works for up to 4 hours 55 minutes, leaving time for saving and pushing. GitHub may delay or skip scheduled runs, and only one run in the concurrency group runs at a time. To stop repeated runs, disable this workflow in the Actions tab. This schedule can use nearly 20 runner-hours per day; review your plan, usage, and GitHub's policies. Standard runners for public repositories are currently free subject to limits and terms; private usage may be billed.
 
-The workflow checks the rules, including a position from an actual loss to Ka where no wall can legally stop the winning route. It produces a game log, a summary, a checkpoint, and a ready-to-use offline app using the selected settings.
+## How the tournament works
 
-## Update the existing GitHub repository
+At the beginning, the job reads the committed champion checkpoint. If it is absent, the workflow attempts to restore the previous v2 Actions cache. If neither exists it starts with wall 55, race 100, branch 10, and the vulnerability check enabled.
 
-1. Extract the ZIP and open the `quoridor-training-v2` folder.
-2. Upload the folder's **contents** to the root of `moh65-debug/quorifish`, replacing the existing matching files. Include the `.github` folder; the workflow must be at `.github/workflows/train.yml` on the default branch.
-3. In GitHub, open **Actions → Quoridor engine experiments v2 → Run workflow**.
-4. Open the completed run and download `quoridor-v2-results-...`. Read `results/summary.json` and `results/games.json`. Open `results/Quoridor_Lab_trained.html` in Chrome or Edge for the offline app.
+Up to four workers independently test changes to one of those four settings. Each experiment plays 20 direct pairs with colors reversed and 32 games against two simple playing styles. All games use 1,200 search nodes per move; seeds produce varying openings. A game reaching the repetition or move limit is recorded as unfinished rather than an official draw.
 
-This version deliberately uses a new checkpoint cache, so it starts from the original v6 settings (wall value 55). It does not import the previous workflow's training history. The prior run you showed rejected its candidate and retained 55. Download artifacts for safekeeping; caches may be evicted and artifacts expire after 30 days.
+The candidate must pass the direct and opponent gates from v2, and additionally meet a stricter p-value threshold of 0.01 divided by the number of workers. If several pass the same round, one is selected by worker order; all other results are retained in the run report. Each new round tests against the selected champion, not against a stale snapshot.
 
-The workflow runs daily at 03:17 UTC as well as manually. Disable the workflow in GitHub Actions to stop scheduled runs. The 120-minute job limit stops the job if exceeded. A failed or timed-out run does not update the champion checkpoint. Public standard runners are subject to GitHub's terms and limits; private repositories may incur usage charges.
+These are exploratory tests. Repeated testing, the small pool of simple opponents, potentially correlated openings, and equal-node rather than real-time play prevent the p-value threshold from guaranteeing long-term improvement. The system cannot invent new search algorithms or learn a neural network. Play an independent match against Ka to assess the target; no remote Ka connection is included.
 
-## Interpreting results
+## Saving and recovery
 
-`promoted: true` means the candidate passed this workflow's internal gates. It does not mean Ka was beaten. Fields under `gates` compare candidate and champion wins against each simple opponent; the gate tolerates at most one fewer win for the candidate per opponent. The direct pair test requires at least 10 decisive pairs and a one-sided sign-test p-value below 0.01. This threshold is not a long-term false-positive guarantee because candidates are tested repeatedly and games are not necessarily independent.
+The champion is updated on the runner after each completed round. The final state is published as an artifact before the push. The workflow refuses to push if the default branch changed during the five-hour run; it never force-pushes. If permissions, protection rules, a branch change, or a timeout prevent the commit, download the artifact before it expires and restore the champion manually. GitHub-hosted machines are temporary: a canceled run or hard timeout can lose work that was not uploaded or committed. Artifacts expire after 30 days.
 
-`results/Quoridor_Lab_trained.html` uses the **saved champion**, not an unsuccessful candidate. Before claiming progress against Ka, play a separate match against Ka, alternate sides, record its setting and Lab's thinking time, and use several games. This package does not automatically connect to or run matches against the remote Ka service.
+The original `Quoridor_Lab.html` is the fixed source template. The current playable result lives in `trained/Quoridor_Lab_trained.html`. Do not manually alter the template's engine strings without updating and testing `training/run.cjs` and `training/marathon.cjs`.
 
-## Local tests
+## Local quick check
 
-Requires Node.js 22+:
+With Node.js 22 or later:
 
 ```
 node training/check.cjs
-node training/run.cjs --pairs=1 --gate=1 --nodes=100 --seed=1
+node training/marathon.cjs --seconds=10 --workers=2 --pairs=1 --gate=1 --nodes=100 --seed=1
 ```
 
-The small local run is a functional check only. The GitHub workflow uses 20 direct pairs, 4 starting positions per opponent, and a 1200-node budget. Every additional position is played twice per engine version (once per color). Increasing those settings increases runtime. `training-state` and `results` are generated output and should not be committed.
+The quick check exercises mechanics only, not playing strength. The full workflow runs `--seconds=17700 --workers=4 --pairs=20 --gate=4 --nodes=1200`.
