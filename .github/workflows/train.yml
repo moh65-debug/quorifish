@@ -1,4 +1,4 @@
-name: Quoridor engine experiments
+name: Quoridor engine experiments v2
 on:
   workflow_dispatch:
   schedule:
@@ -23,20 +23,20 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: training-state
-          key: quoridor-champion-${{ github.run_id }}-${{ github.run_attempt }}
+          key: quoridor-v2-champion-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            quoridor-champion-
+            quoridor-v2-champion-
       - name: Play paired games and update champion
-        run: node training/run.cjs --pairs=20 --nodes=800 --seed=${{ github.run_number }}
+        run: node training/run.cjs --pairs=20 --gate=4 --nodes=1200 --seed=${{ github.run_number }}
       - name: Save checkpoint for next run
         uses: actions/cache/save@v4
         with:
           path: training-state
-          key: quoridor-champion-${{ github.run_id }}-${{ github.run_attempt }}
+          key: quoridor-v2-champion-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Publish game records and offline app
         uses: actions/upload-artifact@v4
         with:
-          name: quoridor-results-${{ github.run_id }}-${{ github.run_attempt }}
+          name: quoridor-v2-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             results/
             training-state/champion.json
