@@ -1,39 +1,39 @@
-# Quoridor Lab: automated engine experiments
+# Quoridor Lab — tournament training v2
 
-This is a starter inspired by Stockfish's Fishtest approach: propose a change, play paired games, and keep it only if the results favor it. It is **not** Stockfish or the Fishtest service. It currently tunes one setting: the value the engine assigns to a remaining wall. It does not change its own algorithms, train a neural network, or guarantee it will beat Ka.
+This project tests controlled changes to the offline Quoridor Lab engine. It is inspired by Stockfish's testing process, but it is not Fishtest, neural-network training, or proof of a win against Ka.
 
-## Install in your GitHub repository
+## What is new
 
-1. Extract this ZIP on your computer. Open the extracted `quoridor-training` folder.
-2. On GitHub, open the repository you want to use. If you are starting fresh, create a repository. A public repository makes the code visible to everyone.
-3. Upload the **contents** of the folder to the repository root, including the `.github` folder. The workflow file must be at `.github/workflows/train.yml` on the default branch.
-4. Open the repository's **Actions** tab. Enable Actions if GitHub asks. Choose **Quoridor engine experiments**, then **Run workflow**.
-5. Open the completed run. Download the **quoridor-results** artifact. Inside `results`, open `Quoridor_Lab_trained.html` in Chrome or Edge to use the selected engine offline. `summary.json` gives the comparison; `games.json` has the move records.
+Each run proposes a change to one of four settings: wall value, distance-to-goal value, the number of wall candidates searched, or the existing wall-vulnerability check. It tests the candidate against the saved champion in 20 pairs of games, swapping colors from the same starting position. Openings vary and some include legal walls.
 
-The workflow also runs daily at 03:17 UTC when scheduled workflows are enabled. Disable the workflow in the Actions tab if you want to stop scheduled experiments.
+Then both versions play the **same additional openings** against two fixed playing styles: a pawn racer and a greedy wall player. These are simple bots using the same rules implementation, not independent Quoridor engines. A candidate is kept only if it passes the direct comparison and the opponent checks. The tests are exploratory: small samples, adaptive repeated testing, deterministic play, and shared rules mean that a promotion does not establish an improvement against humans or Ka. Repetition or a move limit is recorded as unfinished, not as an official draw.
 
-## What each run does
+The workflow checks the rules, including a position from an actual loss to Ka where no wall can legally stop the winning route. It produces a game log, a summary, a checkpoint, and a ready-to-use offline app using the selected settings.
 
-- Restores the latest cached champion or starts with wall value 55.
-- Proposes a small change and runs 20 pairs (40 games). Both versions get the same position and a fixed search-node budget; they swap sides for the second game.
-- Applies a conservative one-sided sign test to decisive pairs. At least 10 decisive pairs and a p-value below 0.01 are required for promotion. A tied pair contributes no evidence. Games stopped by repetition or a move limit are unfinished, and their whole pair is excluded; they are not claimed as official draws.
-- Writes the champion and report, then saves a checkpoint for the next run. The downloadable HTML uses the champion's wall setting; the repository's original HTML is unchanged.
+## Update the existing GitHub repository
 
-This is exploratory research, not a guarantee: repeated testing, a small number of openings, shared engine weaknesses, and adaptive candidate selection weaken statistical conclusions. These tests compare variants of the same engine, not Ka, Apex, or Ishtar. Further independent opponents and more games are needed before claiming an improvement in general play. The prior Lab engine lost to Ka in the limited games already tested.
+1. Extract the ZIP and open the `quoridor-training-v2` folder.
+2. Upload the folder's **contents** to the root of `moh65-debug/quorifish`, replacing the existing matching files. Include the `.github` folder; the workflow must be at `.github/workflows/train.yml` on the default branch.
+3. In GitHub, open **Actions → Quoridor engine experiments v2 → Run workflow**.
+4. Open the completed run and download `quoridor-v2-results-...`. Read `results/summary.json` and `results/games.json`. Open `results/Quoridor_Lab_trained.html` in Chrome or Edge for the offline app.
 
-## Checkpoints and cost
+This version deliberately uses a new checkpoint cache, so it starts from the original v6 settings (wall value 55). It does not import the previous workflow's training history. The prior run you showed rejected its candidate and retained 55. Download artifacts for safekeeping; caches may be evicted and artifacts expire after 30 days.
 
-The next run restores the latest `quoridor-champion-` Actions cache. GitHub may evict caches after inactivity or storage pressure. Each run also publishes `champion.json` in its artifact for 30 days: download it for safekeeping. A fresh repository has no training history. Do not delete useful artifacts until you have downloaded them.
+The workflow runs daily at 03:17 UTC as well as manually. Disable the workflow in GitHub Actions to stop scheduled runs. The 120-minute job limit stops the job if exceeded. A failed or timed-out run does not update the champion checkpoint. Public standard runners are subject to GitHub's terms and limits; private repositories may incur usage charges.
 
-On public repositories standard hosted runners are currently free under GitHub's conditions. Private repository usage draws from your included usage and can incur charges. Check your plan, limits, storage, and GitHub policies. This workflow uses a standard Ubuntu runner and has a 120-minute per-run cap; GitHub may delay scheduled runs.
+## Interpreting results
 
-## Run locally for a quick check
+`promoted: true` means the candidate passed this workflow's internal gates. It does not mean Ka was beaten. Fields under `gates` compare candidate and champion wins against each simple opponent; the gate tolerates at most one fewer win for the candidate per opponent. The direct pair test requires at least 10 decisive pairs and a one-sided sign-test p-value below 0.01. This threshold is not a long-term false-positive guarantee because candidates are tested repeatedly and games are not necessarily independent.
 
-Requires Node.js 22 or later:
+`results/Quoridor_Lab_trained.html` uses the **saved champion**, not an unsuccessful candidate. Before claiming progress against Ka, play a separate match against Ka, alternate sides, record its setting and Lab's thinking time, and use several games. This package does not automatically connect to or run matches against the remote Ka service.
 
-```sh
+## Local tests
+
+Requires Node.js 22+:
+
+```
 node training/check.cjs
-node training/run.cjs --pairs=1 --nodes=100 --seed=1
+node training/run.cjs --pairs=1 --gate=1 --nodes=100 --seed=1
 ```
 
-The quick check is far too small to show playing strength. For actual experiments the workflow uses 20 pairs and 800 nodes per search. You can change those settings in `.github/workflows/train.yml`; larger values take longer. `training-state` and `results` are generated locally and do not need to be committed.
+The small local run is a functional check only. The GitHub workflow uses 20 direct pairs, 4 starting positions per opponent, and a 1200-node budget. Every additional position is played twice per engine version (once per color). Increasing those settings increases runtime. `training-state` and `results` are generated output and should not be committed.
