@@ -1,0 +1,54 @@
+name: Wallz five-hour training
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '13 */6 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: wallz-training
+  cancel-in-progress: false
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check game rules and Wallz adapter
+        run: node training/check.cjs
+      - name: Run five-hour tournament
+        run: node training/marathon.cjs --seconds=18000 --workers=4 --pairs=20 --gate=2 --ms=30 --seed=${{ github.run_number }}
+      - name: Preserve checkpoint and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallz-training-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            training-state/wallz-champion.json
+            trained/Quoridor_Lab_Wallz_champion.html
+            results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Commit champion for the next run
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          test -f training-state/wallz-champion.json
+          test -f trained/Quoridor_Lab_Wallz_champion.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$DEFAULT_BRANCH"
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse FETCH_HEAD)" ]; then
+            echo 'Default branch changed; use the uploaded artifact to recover the checkpoint.'
+            exit 1
+          fi
+          git add -f training-state/wallz-champion.json trained/Quoridor_Lab_Wallz_champion.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update Wallz training champion [skip ci]'
+          git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
