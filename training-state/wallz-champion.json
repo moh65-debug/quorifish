@@ -52,5 +52,5 @@
     "promoted": true,
     "limitation": "Exploratory repeated tests are not conclusive; fixed opponents are simple heuristics, not Ka. Unfinished games are excluded. Short time controls and repeated testing may not predict 5-second play."
   },
-  "totalExperiments": 496
+  "totalExperiments": 1004
 }
