@@ -1,0 +1,9 @@
+'use strict';
+const fs=require('fs'),path=require('path');const root=process.argv[2]||'trap-downloads';
+function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)])}
+let files=walk(root),summaries=files.filter(f=>path.basename(f)==='summary.json').map(f=>JSON.parse(fs.readFileSync(f))),games=files.filter(f=>path.basename(f)==='games.json').map(f=>JSON.parse(fs.readFileSync(f)));
+if(summaries.length!==6||games.length!==6)throw Error(`Expected 6 summaries and 6 game files; found ${summaries.length} and ${games.length}`);
+const expected=new Map([['short-1',[30,50]],['short-2',[30,50]],['short-3',[30,50]],['short-4',[30,50]],['long-1',[500,10]],['long-2',[500,10]]]);
+for(const s of summaries){let v=expected.get(s.label);if(!v||v[0]!==s.timeMsPerMove||v[1]!==s.pairs||s.pairs!==s.positivePairs+s.negativePairs+s.tiedPairs+s.incompletePairs)throw Error('Unexpected or incomplete report '+s.label);expected.delete(s.label)}if(expected.size)throw Error('Missing labels');
+for(let ms of [30,500]){let ss=summaries.filter(s=>s.timeMsPerMove===ms),sum=k=>ss.reduce((a,s)=>a+s[k],0),w=sum('wins'),l=sum('losses');console.log(JSON.stringify({timeMsPerMove:ms,pairs:sum('pairs'),positivePairs:sum('positivePairs'),negativePairs:sum('negativePairs'),tiedPairs:sum('tiedPairs'),incompletePairs:sum('incompletePairs'),candidateWins:w,incumbentWins:l,candidateScore:w+l?w/(w+l):null}));}
+let keys=games.flat().map(g=>JSON.stringify(g.opening)),distinct=new Set(keys);console.log(JSON.stringify({openingRecords:keys.length,uniqueOpeningSequences:distinct.size,duplicateOpeningSequences:keys.length-distinct.size,notice:'Fresh seeds cannot guarantee novel positions. Results are exploratory and not an independent rating or KA result.'}));
