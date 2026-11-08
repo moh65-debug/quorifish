@@ -1,0 +1,56 @@
+{
+  "engine": "wallz-2200",
+  "params": {
+    "wallBias100": 55,
+    "allShortestPaths": 1,
+    "fastWallGen": 1,
+    "trapWalls": 0
+  },
+  "generation": 1,
+  "accepted": 1,
+  "lastResult": {
+    "seed": 200038,
+    "pairs": 20,
+    "timeMsPerMove": 30,
+    "previous": {
+      "wallBias100": 55,
+      "allShortestPaths": 0,
+      "fastWallGen": 1,
+      "trapWalls": 0
+    },
+    "candidate": {
+      "wallBias100": 55,
+      "allShortestPaths": 1,
+      "fastWallGen": 1,
+      "trapWalls": 0
+    },
+    "changed": "allShortestPaths",
+    "positivePairs": 15,
+    "negativePairs": 1,
+    "tiedPairs": 4,
+    "incompletePairs": 0,
+    "wins": 34,
+    "losses": 6,
+    "oneSidedSignTestP": 0.0002593994140625,
+    "opponentGate": true,
+    "gates": [
+      {
+        "opponent": "racer",
+        "candidateWins": 4,
+        "incumbentWins": 4,
+        "unfinished": 0,
+        "gamesPerVersion": 4
+      },
+      {
+        "opponent": "greedy",
+        "candidateWins": 4,
+        "incumbentWins": 4,
+        "unfinished": 0,
+        "gamesPerVersion": 4
+      }
+    ],
+    "promoted": true,
+    "limitation": "Exploratory repeated tests are not conclusive; fixed opponents are simple heuristics, not Ka. Unfinished games are excluded. Short time controls and repeated testing may not predict 5-second play."
+  },
+  "totalExperiments": 496
+}
