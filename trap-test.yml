@@ -1,0 +1,60 @@
+name: Wallz trap wall comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: short-1, ms: 30, pairs: 50, index: 1 }
+          - { label: short-2, ms: 30, pairs: 50, index: 2 }
+          - { label: short-3, ms: 30, pairs: 50, index: 3 }
+          - { label: short-4, ms: 30, pairs: 50, index: 4 }
+          - { label: long-1, ms: 500, pairs: 10, index: 5 }
+          - { label: long-2, ms: 500, pairs: 10, index: 6 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare current champion with trap walls
+        env:
+          TEST_LABEL: ${{ matrix.label }}
+          TEST_MS: ${{ matrix.ms }}
+          TEST_PAIRS: ${{ matrix.pairs }}
+          TEST_INDEX: ${{ matrix.index }}
+        run: |
+          seed=$((100000000 + (GITHUB_RUN_ID % 100000000) * 10 + TEST_INDEX))
+          node training/trap-test.cjs --label="$TEST_LABEL" --ms="$TEST_MS" --pairs="$TEST_PAIRS" --seed="$seed"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trap-test-${{ matrix.label }}
+          path: trap-results/${{ matrix.label }}/
+          if-no-files-found: error
+          retention-days: 30
+  report:
+    needs: compare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: trap-test-*
+          path: trap-downloads
+      - name: Summarize paired games
+        run: node training/trap-report.cjs trap-downloads | tee trap-summary.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trap-comparison-summary
+          path: trap-summary.jsonl
+          retention-days: 30
